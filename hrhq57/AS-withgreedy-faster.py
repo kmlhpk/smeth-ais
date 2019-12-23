@@ -210,16 +210,130 @@ codes_and_names = {'BF' : 'brute-force search',
 ############    now the code for your algorithm should begin                               ############
 #######################################################################################################
 
+import heapq as hp
+
+class aState:
+    def __init__(self,tour,g):
+        self.tour = [c for c in tour]  # tour
+        self.length = len(self.tour)   # tour length
+        self.g = g                     # g(z)
+        self.h = self.heurCost()       # h(z)
+        self.f = self.g + self.h       # f(z)
         
+    # Generates h(z) - in this instance, distance of new city from initial
+    def heurCost(self):
+        if self.length == num_cities+1:
+            return 0
+        else:
+            def expandG(node):
+                if node.length == num_cities:
+                    hp.heappush(fringeG,node.child(0))
+                else:
+                    newCities = [c for c in range (0,num_cities) if c not in node.tour]
+                    for c in newCities:
+                        hp.heappush(fringeG,node.child(c))
+                return
 
+            firstG = gState(self.tour,0,0)
+            currentG = firstG
+            
+            while currentG.length != num_cities+1:
+                fringeG = []
+                expandG(currentG)
+                currentG = fringeG[0]
+            return currentG.g
+    
+    # Generates a succ state: tour + newCity
+    def child(self,nextCity):
+        newTour = [c for c in self.tour]
+        newTour.append(nextCity)
+        newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
+        return aState(newTour,newG)
+        
+    # Comparing states will compare their f(z)
+    def __eq__(self,other):
+        return self.f == other.f    
+    def __ne__(self,other):
+        return self.f != other.f
+    def __lt__(self,other):
+        return self.f < other.f
+    def __le__(self,other):
+        return self.f <= other.f
+    def __gt__(self,other):
+        return self.f > other.f
+    def __ge__(self,other):
+        return self.f >= other.f
+    
+class gState:
+    def __init__(self,tour,f,g):
+        self.tour = [c for c in tour]  # tour
+        self.length = len(self.tour)   # tour length
+        self.g = g                     # g(z)
+        self.f = f                     # f(z)
+    
+    # Generates a succ state: tour + newCity
+    def child(self,nextCity):
+        newTour = [c for c in self.tour]
+        newTour.append(nextCity)
+        newF = distance_matrix[newTour[-2]][newTour[-1]]
+        newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
+        return gState(newTour,newF,newG)
+        
+    # Comparing states will compare their f(z)
+    def __eq__(self,other):
+        return self.f == other.f    
+    def __ne__(self,other):
+        return self.f != other.f
+    def __lt__(self,other):
+        return self.f < other.f
+    def __le__(self,other):
+        return self.f <= other.f
+    def __gt__(self,other):
+        return self.f > other.f
+    def __ge__(self,other):
+        return self.f >= other.f
 
+# Debug info
+def objDetails(obj):
+    print("node",obj.tour)
+    print("length",obj.length)
+    print("g(z)",obj.g)
+    print("h(z)",obj.h)
+    print("f(z)",obj.f)
+    print("\n")
+    
+# Adds a given state's own fringe to the global fringe
+def expandAS(node):
+    if node.length == num_cities:
+        hp.heappush(fringeAS,node.child(0))
+    else:
+        newCities = [c for c in range (0,num_cities) if c not in node.tour]
+        for c in newCities:
+            hp.heappush(fringeAS,node.child(c))
+    return
 
+################
+## THE SEARCH ##
+################
 
+# Initialises the fringe heaps
+fringeAS = []
+# Initiates start node, city 0
+firstAS = aState([0],0)
+currentAS = firstAS
 
+# Performs the A* search
+while currentAS.length != num_cities+1:
+    expandAS(currentAS)
+    #objDetails(fringeAS[0])
+    currentAS = fringeAS[0]
+    hp.heappop(fringeAS)
 
+print("WINNING NODE")
+objDetails(currentAS)
 
-
-
+tour = currentAS.tour
+tour_length = currentAS.g
 
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############
@@ -243,7 +357,7 @@ if flag == "good":
     print("Great! Your tour-length of " + str(tour_length) + " from your " + codes_and_names[alg_code] + " is valid!")
 else:
     print("***** ERROR: Your claimed tour-length of " + str(tour_length) + "is different from the true tour length of " + str(check_tour_length) + ".")
-
+'''
 #######################################################################################################
 ############ start of code to write a valid tour to a text (.txt) file of the correct      ############
 ############ format; if your tour is not valid then you get an error message on the        ############
@@ -270,19 +384,4 @@ if flag == "good":
         f.write("\nNOTE = " + added_note)
     f.close()
     print("I have successfully written the tour to the output file " + output_file_name + ".")
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
+'''
