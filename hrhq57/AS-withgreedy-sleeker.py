@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile175.txt"
+input_file = "AISearchfile012.txt"
 
 #######################################################################################################
 
@@ -211,48 +211,69 @@ codes_and_names = {'BF' : 'brute-force search',
 #######################################################################################################
 
 import heapq as hp
+import math
 
-class aState:
-    def __init__(self,tour,g):
-        self.tour = [c for c in tour]  # tour
-        self.length = len(self.tour)   # tour length
-        self.g = g                     # g(z)
-        self.h = self.heurCost()       # h(z)
-        self.f = self.g + self.h       # f(z)
-        
-    # Generates h(z) - in this instance, distance of new city from initial
-    def heurCost(self):
-        if self.length == num_cities+1:
-            return 0
+class State:
+    def __init__(self,tour,l,g):
+        self.tour = [c for c in tour]
+        self.length = l
+        self.g = g
+        self.h = self.heurCost() if self.length != num_cities+1 else 0
+        '''
+        if self.length != num_cities+1:
+            gtour = [c for c in self.tour]
+            city = gtour[-1]
+            glength = self.length
+            heur = 0
+            while glength != num_cities:
+                distances = [c for c in distance_matrix[city]]
+                for i in gtour:
+                    distances[i] = math.inf
+                smallest = min(distances)
+                city = distances.index(smallest)
+                gtour.append(city)
+                heur += smallest
+                glength += 1
+            heur += distance_matrix[gtour[-1]][0]
+            self.h = heur
         else:
-            def expandG(node):
-                if node.length == num_cities:
-                    hp.heappush(fringeG,node.child(0))
-                else:
-                    newCities = [c for c in range (0,num_cities) if c not in node.tour]
-                    for c in newCities:
-                        hp.heappush(fringeG,node.child(c))
-                return
+            self.h = 0
+        '''
+        self.f = self.g + self.h
 
-            firstG = gState(self.tour,0,0)
-            currentG = firstG
-            
-            while currentG.length != num_cities+1:
-                fringeG = []
-                expandG(currentG)
-                currentG = fringeG[0]
-            return currentG.g
     
-    # Generates a succ state: tour + newCity
-    def child(self,nextCity):
+    def heurCost(self):
+        gtour = [c for c in self.tour]
+        city = gtour[-1]
+        glength = self.length
+        heur = 0
+        while glength != num_cities:
+            distances = [c for c in distance_matrix[city]]
+            for i in gtour:
+                distances[i] = math.inf
+            smallest = min(distances)
+            city = distances.index(smallest)
+            gtour.append(city)
+            heur += smallest
+            glength += 1
+        heur += distance_matrix[gtour[-1]][0]
+        return heur
+    
+    # Generates a child with algorithm-appropriate details
+    def child(self,nextCity,greedy):
         newTour = [c for c in self.tour]
         newTour.append(nextCity)
         newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
-        return aState(newTour,newG)
-        
-    # Comparing states will compare their f(z)
+        newL = self.length + 1
+        #newH = 0 if greedy == True else self.heurCost() #####
+        return State(newTour,newL,newG)
+
+    def __str__(self):
+        return "tour:{self.tour} len:{self.length} g:{self.g} h:{self.h} f:{self.f}".format(self=self)
+
+    # Redefines state comparisons to be in terms of f(z)
     def __eq__(self,other):
-        return self.f == other.f    
+        return self.f == other.f
     def __ne__(self,other):
         return self.f != other.f
     def __lt__(self,other):
@@ -263,35 +284,16 @@ class aState:
         return self.f > other.f
     def __ge__(self,other):
         return self.f >= other.f
-    
-class gState:
-    def __init__(self,tour,f,g):
-        self.tour = [c for c in tour]  # tour
-        self.length = len(self.tour)   # tour length
-        self.g = g                     # g(z)
-        self.f = f                     # f(z)
-    
-    # Generates a succ state: tour + newCity
-    def child(self,nextCity):
-        newTour = [c for c in self.tour]
-        newTour.append(nextCity)
-        newF = distance_matrix[newTour[-2]][newTour[-1]]
-        newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
-        return gState(newTour,newF,newG)
-        
-    # Comparing states will compare their f(z)
-    def __eq__(self,other):
-        return self.f == other.f    
-    def __ne__(self,other):
-        return self.f != other.f
-    def __lt__(self,other):
-        return self.f < other.f
-    def __le__(self,other):
-        return self.f <= other.f
-    def __gt__(self,other):
-        return self.f > other.f
-    def __ge__(self,other):
-        return self.f >= other.f
+
+# Adds a state's successors to the fringe
+def expand(node,fringe,greedy):
+    if node.length == num_cities:
+        hp.heappush(fringe,node.child(0,greedy))
+    else:
+        newCities = [c for c in range (0,num_cities) if c not in node.tour]
+        for c in newCities:
+            hp.heappush(fringe,node.child(c,greedy))
+    return
 
 # Debug info
 def objDetails(obj):
@@ -301,39 +303,26 @@ def objDetails(obj):
     print("h(z)",obj.h)
     print("f(z)",obj.f)
     print("\n")
-    
-# Adds a given state's own fringe to the global fringe
-def expandAS(node):
-    if node.length == num_cities:
-        hp.heappush(fringeAS,node.child(0))
-    else:
-        newCities = [c for c in range (0,num_cities) if c not in node.tour]
-        for c in newCities:
-            hp.heappush(fringeAS,node.child(c))
-    return
 
-################
-## THE SEARCH ##
-################
-
-# Initialises the fringe heaps
-fringeAS = []
+start = time.time()
+# Initialises the fringe heap
+fringe = []
 # Initiates start node, city 0
-firstAS = aState([0],0)
-currentAS = firstAS
-
+current = State([0],1,0)
 # Performs the A* search
-while currentAS.length != num_cities+1:
-    expandAS(currentAS)
-    #objDetails(fringeAS[0])
-    currentAS = fringeAS[0]
-    hp.heappop(fringeAS)
+while current.length != num_cities+1:
+    expand(current,fringe,False)
+    #for i in fringe:
+        #print(i)
+    current = fringe[0]
+    hp.heappop(fringe)
+end = time.time()
+elapsed = end-start
+print("it took me",elapsed,"seconds to find:")
+print(current)
 
-print("WINNING NODE")
-objDetails(currentAS)
-
-tour = currentAS.tour
-tour_length = currentAS.g
+tour = current.tour
+tour_length = current.g
 
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############
