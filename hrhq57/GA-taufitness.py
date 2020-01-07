@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile012.txt"
+input_file = "AISearchfile017.txt"
 
 #######################################################################################################
 
@@ -184,7 +184,7 @@ my_last_name = "Stewart"
 ############    SA = simulated annealing search                                            ############
 ############    GA = genetic algorithm                                                     ############
 
-alg_code = "BG"
+alg_code = "GA"
 
 ############ you can also add a note that will be added to the end of the output file if   ############
 ############ you like, e.g., "in my basic greedy search, I broke ties by always visiting   ############
@@ -211,96 +211,171 @@ codes_and_names = {'BF' : 'brute-force search',
 #######################################################################################################
 
 import heapq as hp
+import random as rd
 
-class State:
-    def __init__(self,tour,g):
-        self.tour = [c for c in tour]  # tour
-        self.length = len(self.tour)   # tour length
-        self.g = g                     # g(z)
-        self.h = self.heurCost()       # h(z)
-        self.f = self.g + self.h       # f(z)
-        
-    # Generates h(z) - in this instance, distance of new city from initial
-    def heurCost(self):
-        return(distance_matrix[self.tour[-1]][0])
+# Defines set of cities for quick checking
+citySet = set(range(num_cities))
+
+# Custom class for chromosomes; stores own tour, length and fitness (inverse of length)
+class Chrom():
+    # Gives chromosome a random tour if none specified
+    def __init__(self,tour):
+        '''
+        if tour == None:
+            self.tour = rd.sample(citySet,num_cities)
+        else:
+            self.tour = [c for c in tour]
+        '''
+        self.tour = [c for c in tour]
+        self.calcLen()
     
-    # Generates a succ state: tour + newCity
-    def child(self,nextCity):
-        newTour = [c for c in self.tour]
-        newTour.append(nextCity)
-        newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
-        return State(newTour,newG)
-        
-    # Comparing states will compare their f(z)
+    # Calculates tour length and fitness
+    def calcLen(self):
+        tourLen = 0
+        for i in range(-1,num_cities-1):
+            tourLen += distance_matrix[self.tour[i]][self.tour[i+1]]
+        self.l = tourLen
+        return
+    
+    def calcFit(self,tau):
+        self.f = ((1.02*tau) - self.l)**2
+        return
+    
+    # Prints chromosome attributes
+    def __str__(self):
+        return "{self.tour} - {self.l} - {self.f}".format(self=self)
+
+    # Redefines state comparisons to be in terms of length
     def __eq__(self,other):
-        return self.f == other.f    
+        return self.l == other.l
     def __ne__(self,other):
-        return self.f != other.f
+        return self.l != other.l
     def __lt__(self,other):
-        return self.f < other.f
+        return self.l < other.l
     def __le__(self,other):
-        return self.f <= other.f
+        return self.l <= other.l
     def __gt__(self,other):
-        return self.f > other.f
+        return self.l > other.l
     def __ge__(self,other):
-        return self.f >= other.f
+        return self.l >= other.l
 
-# Debug info
-def objDetails(obj):
-    print("node",obj.tour)
-    print("length",obj.length)
-    print("g(z)",obj.g)
-    print("h(z)",obj.h)
-    print("f(z)",obj.f)
-    print("\n")
-    
-# Adds a given state's own fringe to the global fringe
-def expand(node):
-    #objDetails(node)
-    if node.length == num_cities:
-        hp.heappush(fringe,node.child(0))
+# Selects a chromosome via a random weighted process, equivalent to roulette
+def roulette():
+    pick = rd.uniform(0,sumFit)
+    current = 0
+    for c in pop:
+        current += c.f
+        if current > pick:
+            return c
+        
+# Checks average fitness of chroms picked by roulette()
+def checkAverages():
+    sumFit = sum([c.f for c in pop])    
+    avgFit = sumFit / popSize
+    total = 0
+    for i in range(10000):
+        chrom = roulette()
+        total += chrom.f
+    avgSel = total / 10000
+    print(avgFit)
+    print(avgSel)
+
+# Crossover as provided on lecture slides and spec
+def crossover(X,Y):
+    pos = rd.randint(1,num_cities-1)
+    splitX = (X.tour[:pos],X.tour[pos:])
+    splitY = (Y.tour[:pos],Y.tour[pos:])
+    newX = splitX[0]+splitY[1]
+    newY = splitY[0]+splitX[1]
+    notX = citySet - set(newX)
+    notY = citySet - set(newY)
+    seenX = set()
+    seenY = set()
+    dupesX = []
+    dupesY = []
+    for i in range(num_cities):
+        if newX[i] not in seenX:
+            seenX.add(newX[i])
+        else:
+            dupesX.append(i)
+        if newY[i] not in seenY:
+            seenY.add(newY[i])
+        else:
+            dupesY.append(i)
+    for i in dupesX:
+        newX[i] = notX.pop()
+    for i in dupesY:
+        newY[i] = notY.pop()
+    tourX = 0
+    tourY = 0
+    for i in range(-1,num_cities-1):
+        tourX += distance_matrix[newX[i]][newX[i+1]]
+        tourY += distance_matrix[newY[i]][newY[i+1]]
+    if tourX <= tourY:
+        return(Chrom(newX))
     else:
-        newCities = [c for c in range (0,num_cities) if c not in node.tour]
-        for c in newCities:
-            hp.heappush(fringe,node.child(c))
+        return(Chrom(newY))
+
+# Mutation as provided on lecture slides and spec
+def mutate(chrom):
+    posA = rd.randint(0,num_cities-1)
+    posB = rd.randint(0,num_cities-1)
+    temp = chrom.tour[posA]
+    chrom.tour[posA] = chrom.tour[posB]
+    chrom.tour[posB] = temp
+    chrom.calcLen()
+    chrom.calcFit(tau)
     return
 
-################
-## THE SEARCH ##
-################
-'''
-# Initialises the fringe heap
-fringe = []
-# Initiates start node, city 0
-initial = State([0],0)
-currentNode = initial
-# Performs the A* search
-while currentNode.length != num_cities+1:
-    expand(currentNode)
-    currentNode = fringe[0]
-    hp.heappop(fringe)
+# Terminate after either 2 minutes,
+# or no improvement in fitness for a few generations
 
-print("WINNING NODE")
-objDetails(currentNode)
-'''
-tour = [1, 3, 8, 10, 11, 9, 5, 2, 6, 4, 7, 0]
-tour_length = 89
+start = time.time()
+TIME_LIMIT = 115 # 115 seconds
 
-def checkLen(tour,guess):
-    length = 0
-    for i in range(0,len(tour)-1):
-        print(tour[i],tour[i+1])
-        print(distance_matrix[tour[i]][tour[i+1]])
-        length += distance_matrix[tour[i]][tour[i+1]]
-    if length == guess:
-        print("right you are chief")
-        return
-    else:
-        print("The actual length is",length)
-        return
+pop = []
+popSize = 200
+for i in range(popSize):
+    hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
+tau = max(pop).l
+for i in pop:
+    i.calcFit(tau)
+best = pop[0]
+gen = -1
+sumFit = sum([c.f for c in pop])
+prob = 0.15
+generations = 100
 
-checkLen(tour,tour_length)
-'''
+for i in range(generations):
+    newPop = []
+    for j in range(popSize):
+        child = crossover(roulette(),roulette())
+        if rd.uniform(0,1) < prob:
+            mutate(child)
+        hp.heappush(newPop,child)
+    if newPop[0] < best:
+        best = newPop[0]
+        gen = i
+    if time.time() >= start + TIME_LIMIT:
+        break
+    pop = newPop
+    tau = max(pop).l
+    for i in pop:
+        i.calcFit(tau)
+    sumFit = sum([c.f for c in pop])
+
+end = time.time()
+elapsed = end-start
+
+print()
+print("it took me",elapsed,"seconds to find:")
+print(best)
+print(gen)
+
+tour = best.tour
+tour_length = best.l
+
+
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############
 ############ computed a tour held in the list "tour" of length "tour_length"               ############
@@ -324,6 +399,7 @@ if flag == "good":
 else:
     print("***** ERROR: Your claimed tour-length of " + str(tour_length) + "is different from the true tour length of " + str(check_tour_length) + ".")
 
+'''
 #######################################################################################################
 ############ start of code to write a valid tour to a text (.txt) file of the correct      ############
 ############ format; if your tour is not valid then you get an error message on the        ############
@@ -350,4 +426,5 @@ if flag == "good":
         f.write("\nNOTE = " + added_note)
     f.close()
     print("I have successfully written the tour to the output file " + output_file_name + ".")
+    
 '''

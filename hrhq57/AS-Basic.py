@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile012.txt"
+input_file = "AISearchfile058.txt"
 
 #######################################################################################################
 
@@ -184,13 +184,13 @@ my_last_name = "Stewart"
 ############    SA = simulated annealing search                                            ############
 ############    GA = genetic algorithm                                                     ############
 
-alg_code = "BG"
+alg_code = "AS"
 
 ############ you can also add a note that will be added to the end of the output file if   ############
 ############ you like, e.g., "in my basic greedy search, I broke ties by always visiting   ############
 ############ the first nearest city found" or leave it empty if you wish                   ############
 
-added_note = ""
+added_note = "The heuristic is greedy distance to goal node; the start city is 0; internally, tours are length n+1 with first and last city being 0, but the code returns a tour of length n as requested"
 
 ############ the line below sets up a dictionary of codes and search names (you need do    ############
 ############ nothing unless you implement an alternative algorithm and I give you a code   ############
@@ -211,85 +211,53 @@ codes_and_names = {'BF' : 'brute-force search',
 #######################################################################################################
 
 import heapq as hp
+import math
 
-class aState:
-    def __init__(self,tour,g):
-        self.tour = [c for c in tour]  # tour
-        self.length = len(self.tour)   # tour length
-        self.g = g                     # g(z)
-        self.h = self.heurCost()       # h(z)
-        self.f = self.g + self.h       # f(z)
-        
-    # Generates h(z) - in this instance, distance of new city from initial
-    def heurCost(self):
-        if self.length == num_cities+1:
-            return 0
-        else:
-            def expandG(node):
-                if node.length == num_cities:
-                    hp.heappush(fringeG,node.child(0))
-                else:
-                    newCities = [c for c in range (0,num_cities) if c not in node.tour]
-                    for c in newCities:
-                        hp.heappush(fringeG,node.child(c))
-                return
-
-            firstG = gState(self.tour,0,0)
-            currentG = firstG
-            
-            while currentG.length != num_cities+1:
-                fringeG = []
-                expandG(currentG)
-                #for i in fringeG:
-                    #print("GREEDY",i)
-                currentG = fringeG[0]
-            return currentG.g
+# Custom class for state nodes - stores some important info about itself
+class State:
+    def __init__(self,tour,l,g):
+        self.tour = [c for c in tour]
+        self.set = set(self.tour) ###################################################### does this help?
+        self.length = l
+        self.g = g
+        self.h = self.heurCost() if self.length != num_cities+1 else 0
+        self.f = self.g + self.h
     
-    # Generates a succ state: tour + newCity
+    # The heuristic is "distance to a goal node via greedy search"
+    def heurCost(self):
+        gtour = [c for c in self.tour]
+        city = gtour[-1]
+        glength = self.length
+        heur = 0
+        # Iterates through unvisited cities, picking nearest as next destination
+        while glength != num_cities:
+            distances = [c for c in distance_matrix[city]]
+            # Ignores distances to visited cities by making them infinite
+            for i in gtour:
+                distances[i] = math.inf
+            smallest = min(distances)
+            city = distances.index(smallest)
+            gtour.append(city)
+            heur += smallest
+            glength += 1
+        heur += distance_matrix[gtour[-1]][0]
+        return heur
+    
+    # Generates a child with algorithm-appropriate details
     def child(self,nextCity):
         newTour = [c for c in self.tour]
         newTour.append(nextCity)
         newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
-        return aState(newTour,newG)
-        
+        newL = self.length + 1
+        return State(newTour,newL,newG)
+    
+    # Prints state attributes
     def __str__(self):
         return "tour:{self.tour} len:{self.length} g:{self.g} h:{self.h} f:{self.f}".format(self=self)
-    
-    # Comparing states will compare their f(z)
-    def __eq__(self,other):
-        return self.f == other.f    
-    def __ne__(self,other):
-        return self.f != other.f
-    def __lt__(self,other):
-        return self.f < other.f
-    def __le__(self,other):
-        return self.f <= other.f
-    def __gt__(self,other):
-        return self.f > other.f
-    def __ge__(self,other):
-        return self.f >= other.f
-    
-class gState:
-    def __init__(self,tour,f,g):
-        self.tour = [c for c in tour]  # tour
-        self.length = len(self.tour)   # tour length
-        self.g = g                     # g(z)
-        self.f = f                     # f(z)
-    
-    # Generates a succ state: tour + newCity
-    def child(self,nextCity):
-        newTour = [c for c in self.tour]
-        newTour.append(nextCity)
-        newF = distance_matrix[newTour[-2]][newTour[-1]]
-        newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
-        return gState(newTour,newF,newG)
-        
-    def __str__(self):
-        return "tour:{self.tour} len:{self.length} g:{self.g} f:{self.f}".format(self=self)        
 
-    # Comparing states will compare their f(z)
+    # Redefines state comparisons to be in terms of f(z)
     def __eq__(self,other):
-        return self.f == other.f    
+        return self.f == other.f
     def __ne__(self,other):
         return self.f != other.f
     def __lt__(self,other):
@@ -301,56 +269,34 @@ class gState:
     def __ge__(self,other):
         return self.f >= other.f
 
-# Debug info
-def objDetails(obj):
-    print("node",obj.tour)
-    print("length",obj.length)
-    print("g(z)",obj.g)
-    print("h(z)",obj.h)
-    print("f(z)",obj.f)
-    print("\n")
-    
-def gDetails(obj):
-    print("node",obj.tour)
-    print("length",obj.length)
-    print("g(z)",obj.g)
-    #print("h(z)",obj.h)
-    print("f(z)",obj.f)
-    print("\n")
-    
-# Adds a given state's own fringe to the global fringe
-def expandAS(node):
+# Adds a state's successors to the fringe
+def expand(node,fringe):
     if node.length == num_cities:
-        hp.heappush(fringeAS,node.child(0))
+        hp.heappush(fringe,node.child(0))
     else:
-        newCities = [c for c in range (0,num_cities) if c not in node.tour]
+        newCities = [c for c in range (0,num_cities) if c not in node.set]
         for c in newCities:
-            hp.heappush(fringeAS,node.child(c))
+            hp.heappush(fringe,node.child(c))
     return
 
-################
-## THE SEARCH ##
-################
 start = time.time()
-# Initialises the fringe heaps
-fringeAS = []
+# Initialises the fringe heap
+fringe = []
 # Initiates start node, city 0
-firstAS = aState([0],0)
-currentAS = firstAS
-
-# Performs the A* search
-while currentAS.length != num_cities+1:
-    expandAS(currentAS)
-    #for i in fringeAS:
-        #print(i)
-    currentAS = fringeAS[0]
-    hp.heappop(fringeAS)
+current = State([0],1,0)
+# Performs A* search by expanding best node and popping from fringe
+while current.length != num_cities+1:
+    expand(current,fringe)
+    current = fringe[0]
+    hp.heappop(fringe)
 end = time.time()
 elapsed = end-start
 print("it took me",elapsed,"seconds to find:")
-print(currentAS)
-tour = currentAS.tour
-tour_length = currentAS.g
+print(current)
+tour = current.tour[:-1]
+#print("tour:"+str(tour))
+#print(len(tour) == num_cities)
+tour_length = current.g
 
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############

@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile058.txt"
+input_file = "my100file.txt"
 
 #######################################################################################################
 
@@ -184,13 +184,13 @@ my_last_name = "Stewart"
 ############    SA = simulated annealing search                                            ############
 ############    GA = genetic algorithm                                                     ############
 
-alg_code = "GA"
+alg_code = "AS"
 
 ############ you can also add a note that will be added to the end of the output file if   ############
 ############ you like, e.g., "in my basic greedy search, I broke ties by always visiting   ############
 ############ the first nearest city found" or leave it empty if you wish                   ############
 
-added_note = ""
+added_note = "The heuristic is greedy distance to goal node; the start city is 0; internally, tours are length n+1 with first and last city being 0, but the code returns a tour of length n as requested"
 
 ############ the line below sets up a dictionary of codes and search names (you need do    ############
 ############ nothing unless you implement an alternative algorithm and I give you a code   ############
@@ -211,155 +211,127 @@ codes_and_names = {'BF' : 'brute-force search',
 #######################################################################################################
 
 import heapq as hp
-import random as rd
+import math
 
-# Defines set of cities for quick checking
-citySet = set(range(num_cities))
-
-# Custom class for chromosomes; stores own tour, length and fitness (inverse of length)
-class Chrom():
-    # Gives chromosome a random tour if none specified
-    def __init__(self,tour):
+# Custom class for state nodes - stores some important info about itself
+class State:
+    def __init__(self,tour,l,g):
         self.tour = [c for c in tour]
-        self.calcFit()
+        self.set = set(self.tour) ###################################################### does this help?
+        self.length = l
+        self.g = g
+        self.h = self.heurCost() if self.length != num_cities+1 else 0
+        self.f = self.g + self.h
     
-    # Calculates tour length and fitness
-    def calcFit(self):
-        tourLen = 0
-        for i in range(-1,num_cities-1):
-            tourLen += distance_matrix[self.tour[i]][self.tour[i+1]]
-        self.l = tourLen
-        self.f = 1000/tourLen
-        return
+    # The heuristic is "distance to a goal node via greedy search"
+    def heurCost(self):
+        gtour = [c for c in self.tour]
+        city = gtour[-1]
+        glength = self.length
+        heur = 0
+        # Iterates through unvisited cities, picking nearest as next destination
+        while glength != num_cities:
+            distances = [c for c in distance_matrix[city]]
+            # Ignores distances to visited cities by making them infinite
+            for i in gtour:
+                distances[i] = math.inf # REWRITE THIS TO DYNAMICALLY GET RID OF WHOLE NEW COLUMNS FROM THE MATRIX
+            smallest = min(distances)
+            city = distances.index(smallest)
+            gtour.append(city)
+            heur += smallest
+            glength += 1
+        heur += distance_matrix[gtour[-1]][0]
+        return heur
     
-    # Prints chromosome attributes
+    # Generates a child with algorithm-appropriate details
+    def child(self,nextCity):
+        newTour = [c for c in self.tour]
+        newTour.append(nextCity)
+        newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
+        newL = self.length + 1
+        return State(newTour,newL,newG)
+    
+    # Prints state attributes
     def __str__(self):
-        return "{self.tour} - {self.l} - {self.f}".format(self=self)
+        return "tour:{self.tour} len:{self.length} g:{self.g} h:{self.h} f:{self.f}".format(self=self)
 
-    # Redefines state comparisons to be in terms of length
+    # Redefines state comparisons to be in terms of f(z)
     def __eq__(self,other):
-        return self.l == other.l
+        return self.f == other.f
     def __ne__(self,other):
-        return self.l != other.l
+        return self.f != other.f
     def __lt__(self,other):
-        return self.l < other.l
+        return self.f < other.f
     def __le__(self,other):
-        return self.l <= other.l
+        return self.f <= other.f
     def __gt__(self,other):
-        return self.l > other.l
+        return self.f > other.f
     def __ge__(self,other):
-        return self.l >= other.l
+        return self.f >= other.f
 
-# Selects a chromosome via a random weighted process, equivalent to roulette
-def roulette():
-    pick = rd.uniform(0,sumFit)
-    current = 0
-    for c in pop:
-        current += c.f
-        if current > pick:
-            return c
-        
-# Checks average fitness of chroms picked by roulette()
-def checkAverages():
-    sumFit = sum([c.f for c in pop])    
-    avgFit = sumFit / popSize
-    total = 0
-    for i in range(10000):
-        chrom = roulette()
-        total += chrom.f
-    avgSel = total / 10000
-    print(avgFit)
-    print(avgSel)
-
-# Crossover as provided on lecture slides and spec
-def crossover(X,Y):
-    pos = rd.randint(1,num_cities-1)
-    splitX = (X.tour[:pos],X.tour[pos:])
-    splitY = (Y.tour[:pos],Y.tour[pos:])
-    newX = splitX[0]+splitY[1]
-    newY = splitY[0]+splitX[1]
-    notX = citySet - set(newX)
-    notY = citySet - set(newY)
-    seenX = set()
-    seenY = set()
-    dupesX = []
-    dupesY = []
-    for i in range(num_cities):
-        if newX[i] not in seenX:
-            seenX.add(newX[i])
-        else:
-            dupesX.append(i)
-        if newY[i] not in seenY:
-            seenY.add(newY[i])
-        else:
-            dupesY.append(i)
-    for i in dupesX:
-        newX[i] = notX.pop()
-    for i in dupesY:
-        newY[i] = notY.pop()
-    tourX = 0
-    tourY = 0
-    for i in range(-1,num_cities-1):
-        tourX += distance_matrix[newX[i]][newX[i+1]]
-        tourY += distance_matrix[newY[i]][newY[i+1]]
-    if tourX <= tourY:
-        return(Chrom(newX))
+# Adds a state's successors to the fringe
+def expand(node,fringe):
+    if node.length == num_cities:
+        hp.heappush(fringe,node.child(0))
     else:
-        return(Chrom(newY))
-
-# Mutation as provided on lecture slides and spec
-def mutate(chrom):
-    posA = rd.randint(0,num_cities-1)
-    posB = rd.randint(0,num_cities-1)
-    temp = chrom.tour[posA]
-    chrom.tour[posA] = chrom.tour[posB]
-    chrom.tour[posB] = temp
-    chrom.calcFit()
+        newCities = [c for c in range (0,num_cities) if c not in node.set]
+        for c in newCities:
+            hp.heappush(fringe,node.child(c))
     return
 
-# Terminate after either 2 minutes,
-# or no improvement in fitness for a few generations
+start = time.time()
+# Initialises the fringe heap
+fringe = []
+# Initiates start node, city 0
+current = State([0],1,0)
+# Performs A* search by expanding best node and popping from fringe
+while current.length != num_cities+1:
+    expand(current,fringe)
+    current = fringe[0]
+    #print(current)
+    hp.heappop(fringe)
+end = time.time()
+elapsed = end-start
+print("it took me",elapsed,"seconds to find:")
+print(current)
+tour = current.tour[:-1]
+#print("tour:"+str(tour))
+#print(len(tour) == num_cities)
+tour_length = current.g
+
+def twoOpt(tour,i,k):
+    newTour = tour[0:i]
+    newTour.extend(tour[i:k+1][::-1])
+    newTour.extend(tour[k+1:])
+    return newTour
 
 start = time.time()
-TIME_LIMIT = 115 # 115 seconds
 
-pop = []
-popSize = 75
-for i in range(popSize):
-    hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
-best = pop[0]
-#rd.shuffle(pop)
-gen = -1
-sumFit = sum([c.f for c in pop])
-prob = 0.1
-generations = 3000
-
-for i in range(generations):
-    newPop = []
-    for j in range(popSize):
-        child = crossover(roulette(),roulette())
-        if rd.uniform(0,1) < prob:
-            mutate(child)
-        hp.heappush(newPop,child)
-    if newPop[0] < best:
-        best = newPop[0]
-        gen = i
-    if time.time() >= start + TIME_LIMIT:
-        break
-    pop = newPop
-    #rd.shuffle(pop)
-    sumFit = sum([c.f for c in pop])
+swapped = True
+while swapped == True:
+    swaps = 0
+    tourCopy = [c for c in tour]
+    for i in range(0,num_cities-2):
+        for k in range(i+1,num_cities-1):
+            newTour = twoOpt(tourCopy,i,k)
+            #print(newTour)
+            tourLen = 0
+            for j in range(-1,num_cities-1):
+                tourLen += distance_matrix[newTour[j]][newTour[j+1]]
+            #print(tourLen)
+            if tourLen < tour_length:
+                #print("swap")
+                swaps += 1
+                tour_length = tourLen
+                tour = [c for c in newTour]
+    if swaps == 0:
+        swapped = False
 
 end = time.time()
 elapsed = end-start
+print("it took an extra",elapsed,"s to improve to:")
+print(tour,tour_length)
 
-print()
-print("it took me",elapsed,"seconds to find:")
-print(best)
-print(gen)
-
-tour = best.tour
-tour_length = best.l
 
 
 #######################################################################################################
@@ -384,7 +356,6 @@ if flag == "good":
     print("Great! Your tour-length of " + str(tour_length) + " from your " + codes_and_names[alg_code] + " is valid!")
 else:
     print("***** ERROR: Your claimed tour-length of " + str(tour_length) + "is different from the true tour length of " + str(check_tour_length) + ".")
-
 '''
 #######################################################################################################
 ############ start of code to write a valid tour to a text (.txt) file of the correct      ############
@@ -412,5 +383,4 @@ if flag == "good":
         f.write("\nNOTE = " + added_note)
     f.close()
     print("I have successfully written the tour to the output file " + output_file_name + ".")
-    
 '''

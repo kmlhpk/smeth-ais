@@ -212,6 +212,7 @@ codes_and_names = {'BF' : 'brute-force search',
 
 import heapq as hp
 import random as rd
+import math
 
 # Defines set of cities for quick checking
 citySet = set(range(num_cities))
@@ -308,7 +309,7 @@ def crossover(X,Y):
         return(Chrom(newY))
 
 # Mutation as provided on lecture slides and spec
-def mutate(chrom):
+def mutateIP(chrom):
     posA = rd.randint(0,num_cities-1)
     posB = rd.randint(0,num_cities-1)
     temp = chrom.tour[posA]
@@ -317,29 +318,83 @@ def mutate(chrom):
     chrom.calcFit()
     return
 
+def mutate(chrom):
+    tour = [c for c in chrom.tour] 
+    posA = rd.randint(0,num_cities-1)
+    posB = rd.randint(0,num_cities-1)
+    temp = tour[posA]
+    tour[posA] = tour[posB]
+    tour[posB] = temp
+    return Chrom(tour)
+
+def mutateSub(chrom):
+    tour = [c for c in chrom.tour] 
+    pos = rd.randint(0,num_cities-1)
+    tour[pos:pos+30] = tour[pos:pos+30][::-1]
+    return Chrom(tour)
+
+def greedyChrom():
+    city = rd.randint(0,num_cities-1)
+    noVisit = []
+    tour = [city]
+    cities = 1
+    # Iterates through unvisited cities, picking nearest as next destination
+    while cities != num_cities:
+        distances = [c for c in distance_matrix[city]]
+        # Ignores distances to visited cities by making them infinite
+        for i in tour:
+            distances[i] = math.inf
+        smallest = min(distances)
+        city = distances.index(smallest)
+        tour.append(city)
+        cities += 1
+    return Chrom(tour)
+
+def heurCost():
+    # Figures out unvisited cities
+    noVisit = [c for c in range(num_cities) if c not in self.set]
+    city = self.tour[-1]
+    length = self.length
+    heur = 0
+    # Loops until full tour found
+    while length != num_cities:
+        # Makes a dictionary of neighbour:distance to neighbour
+        distances = {c:distance_matrix[city][c] for c in noVisit}
+        # Picks nearest neighbour as next city
+        city = min(distances,key=distances.get)
+        noVisit.remove(city)
+        heur += distances[city]
+        length += 1
+    # Joins up start and end cities
+    heur += distance_matrix[city][0]
+    return heur
+
 # Terminate after either 2 minutes,
 # or no improvement in fitness for a few generations
 
 start = time.time()
-TIME_LIMIT = 115 # 115 seconds
+TIME_LIMIT = 99999999999 # 115 seconds
 
 pop = []
 popSize = 75
 for i in range(popSize):
     hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
+    #hp.heappush(pop,greedyChrom())
 best = pop[0]
 #rd.shuffle(pop)
 gen = -1
 sumFit = sum([c.f for c in pop])
-prob = 0.1
+prob = 0.05
 generations = 3000
 
 for i in range(generations):
     newPop = []
     for j in range(popSize):
-        child = crossover(roulette(),roulette())
         if rd.uniform(0,1) < prob:
-            mutate(child)
+            #child = mutateSub(roulette())
+            child = mutate(roulette())
+        else:
+            child = crossover(roulette(),roulette())
         hp.heappush(newPop,child)
     if newPop[0] < best:
         best = newPop[0]
@@ -360,6 +415,37 @@ print(gen)
 
 tour = best.tour
 tour_length = best.l
+
+start = time.time()
+
+# Performs the 2-opt algorithm
+swapped = True
+# Repeats until no swaps (improvements) made
+while swapped == True:
+    swaps = 0
+    tourCopy = tour[:]
+    # Tries each pair of cities
+    for i in range(0,num_cities-2):
+        for j in range(i+1,num_cities-1):
+            # Reverses subsequence to simulate "uncrossing" overlapping edges
+            newTour = revSub(tourCopy,i,j)
+            # Calculates new tour length
+            tourLen = 0
+            for k in range(-1,num_cities-1):
+                tourLen += distance_matrix[newTour[k]][newTour[k+1]]
+            # If tour length improved, starts process again on new tour with swap
+            if tourLen < tour_length:
+                swaps += 1
+                tour_length = tourLen
+                tour = [c for c in newTour]
+    if swaps == 0:
+        swapped = False
+
+end = time.time()
+elapsed = end-start
+print("it took an extra",elapsed,"s to improve to:")
+print(tour,tour_length)
+
 
 
 #######################################################################################################

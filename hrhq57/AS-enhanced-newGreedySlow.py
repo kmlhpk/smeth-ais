@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "my90file.txt"
+input_file = "my100file.txt"
 
 #######################################################################################################
 
@@ -213,43 +213,52 @@ codes_and_names = {'BF' : 'brute-force search',
 import heapq as hp
 import math
 
+citySet = set(range(num_cities))
+
 # Custom class for state nodes - stores some important info about itself
 class State:
-    def __init__(self,tour,l,g):
+    def __init__(self,tour,l,g,printQ):
         self.tour = [c for c in tour]
         self.set = set(self.tour) ###################################################### does this help?
         self.length = l
         self.g = g
-        self.h = self.heurCost() if self.length != num_cities+1 else 0
+        self.h = self.heurCost(printQ) if self.length != num_cities+1 else 0
         self.f = self.g + self.h
     
     # The heuristic is "distance to a goal node via greedy search"
-    def heurCost(self):
-        gtour = [c for c in self.tour]
-        city = gtour[-1]
+    def heurCost(self,printQ):
+        noVisit = citySet - self.set
+        city = self.tour[-1]
+        if printQ: print("starting city",city)
         glength = self.length
+        if printQ: print("starting glength",glength)
         heur = 0
-        # Iterates through unvisited cities, picking nearest as next destination
+        if printQ: print("starting heur",heur)
         while glength != num_cities:
-            distances = [c for c in distance_matrix[city]]
-            # Ignores distances to visited cities by making them infinite
-            for i in gtour:
-                distances[i] = math.inf
-            smallest = min(distances)
-            city = distances.index(smallest) ############################################## redundant line?
-            gtour.append(city)
-            heur += smallest
+            distances = {c:distance_matrix[city][c] for c in sorted(noVisit)}
+            if printQ: print("distances",distances)
+            city = min(distances,key=distances.get)
+            #mini = distances[city]
+            #cities = [k for k,v in distances.items() if v == mini]
+            #if len(cities) > 1:
+                #city = min(cities)
+            if printQ: print("city",city)
+            noVisit.remove(city)
+            heur += distances[city]
+            if printQ: print("heur",heur)
             glength += 1
-        heur += distance_matrix[gtour[-1]][0]
+        if printQ: print("heur before rejoin",heur)
+        heur += distance_matrix[city][0]
+        if printQ: print("heur after rejoin",heur)
         return heur
     
     # Generates a child with algorithm-appropriate details
-    def child(self,nextCity):
+    def child(self,nextCity,printQ):
         newTour = [c for c in self.tour]
         newTour.append(nextCity)
         newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
         newL = self.length + 1
-        return State(newTour,newL,newG)
+        return State(newTour,newL,newG,printQ)
     
     # Prints state attributes
     def __str__(self):
@@ -272,22 +281,23 @@ class State:
 # Adds a state's successors to the fringe
 def expand(node,fringe):
     if node.length == num_cities:
-        hp.heappush(fringe,node.child(0))
+        hp.heappush(fringe,node.child(0,False))
     else:
         newCities = [c for c in range (0,num_cities) if c not in node.set]
         for c in newCities:
-            hp.heappush(fringe,node.child(c))
+            hp.heappush(fringe,node.child(c,False))
     return
 
 start = time.time()
 # Initialises the fringe heap
 fringe = []
 # Initiates start node, city 0
-current = State([0],1,0)
+current = State([0],1,0,False)
 # Performs A* search by expanding best node and popping from fringe
 while current.length != num_cities+1:
     expand(current,fringe)
     current = fringe[0]
+    #print(current)
     hp.heappop(fringe)
 end = time.time()
 elapsed = end-start
@@ -297,6 +307,41 @@ tour = current.tour[:-1]
 #print("tour:"+str(tour))
 #print(len(tour) == num_cities)
 tour_length = current.g
+
+def twoOpt(tour,i,k):
+    newTour = tour[0:i]
+    newTour.extend(tour[i:k+1][::-1])
+    newTour.extend(tour[k+1:])
+    return newTour
+
+start = time.time()
+
+swapped = True
+while swapped == True:
+    swaps = 0
+    tourCopy = [c for c in tour]
+    for i in range(0,num_cities-2):
+        for k in range(i+1,num_cities-1):
+            newTour = twoOpt(tourCopy,i,k)
+            #print(newTour)
+            tourLen = 0
+            for j in range(-1,num_cities-1):
+                tourLen += distance_matrix[newTour[j]][newTour[j+1]]
+            #print(tourLen)
+            if tourLen < tour_length:
+                #print("swap")
+                swaps += 1
+                tour_length = tourLen
+                tour = [c for c in newTour]
+    if swaps == 0:
+        swapped = False
+
+end = time.time()
+elapsed = end-start
+print("it took an extra",elapsed,"s to improve to:")
+print(tour,tour_length)
+
+
 
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############
