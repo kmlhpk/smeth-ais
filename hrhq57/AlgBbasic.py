@@ -162,15 +162,15 @@ else:
 ############ YOU NEED TO INCLUDE THE FOLLOWING PARAMETERS:                                 ############
 ############ "my_user_name" = your user-name, e.g., mine is dcs0ias                        ############
 
-my_user_name = "dcs0ias"
+my_user_name = "hrhq57"
 
 ############ "my_first_name" = your first name, e.g., mine is Iain                         ############
 
-my_first_name = "Iain"
+my_first_name = "Kamil"
 
 ############ "my_last_name" = your last name, e.g., mine is Stewart                        ############
 
-my_last_name = "Stewart"
+my_last_name = "Hepak"
 
 ############ "alg_code" = the two-digit code that tells me which algorithm you have        ############
 ############ implemented (see the assignment pdf), where the codes are:                    ############
@@ -184,7 +184,7 @@ my_last_name = "Stewart"
 ############    SA = simulated annealing search                                            ############
 ############    GA = genetic algorithm                                                     ############
 
-alg_code = "BG"
+alg_code = "GA"
 
 ############ you can also add a note that will be added to the end of the output file if   ############
 ############ you like, e.g., "in my basic greedy search, I broke ties by always visiting   ############
@@ -210,16 +210,148 @@ codes_and_names = {'BF' : 'brute-force search',
 ############    now the code for your algorithm should begin                               ############
 #######################################################################################################
 
-        
+import heapq as hp
+import random as rd
+import time
 
+# Defines set of cities for quick checking
+citySet = set(range(num_cities))
 
+# Custom class for chromosomes; stores own tour, length and fitness (inverse of length)
+class Chrom():
+    # Gives chromosome a random tour if none specified
+    def __init__(self,tour):
+        self.tour = [c for c in tour]
+        self.calcFit()
+    
+    # Calculates tour length and fitness
+    def calcFit(self):
+        tourLen = 0
+        for i in range(-1,num_cities-1):
+            tourLen += distance_matrix[self.tour[i]][self.tour[i+1]]
+        self.l = tourLen
+        self.f = 1000/tourLen
+        return
+    
+    # Prints chromosome attributes
+    def __str__(self):
+        return "{self.tour} - {self.l} - {self.f}".format(self=self)
 
+    # Redefines state comparisons to be in terms of length
+    def __eq__(self,other):
+        return self.l == other.l
+    def __ne__(self,other):
+        return self.l != other.l
+    def __lt__(self,other):
+        return self.l < other.l
+    def __le__(self,other):
+        return self.l <= other.l
+    def __gt__(self,other):
+        return self.l > other.l
+    def __ge__(self,other):
+        return self.l >= other.l
 
+# Selects a chromosome via a random weighted process, equivalent to roulette
+def roulette():
+    pick = rd.uniform(0,sumFit)
+    current = 0
+    for c in pop:
+        current += c.f
+        if current > pick:
+            return c
 
+# Single-point crossover as provided on lecture slides and spec
+def crossover(X,Y):
+    # Splits tours about random position
+    pos = rd.randint(1,num_cities-1)
+    splitX = (X.tour[:pos],X.tour[pos:])
+    splitY = (Y.tour[:pos],Y.tour[pos:])
+    # Recombines tours, swapping sections
+    newX = splitX[0]+splitY[1]
+    newY = splitY[0]+splitX[1]
+    # Fixes duplicates
+    notX = citySet - set(newX)
+    notY = citySet - set(newY)
+    seenX = set()
+    seenY = set()
+    dupesX = []
+    dupesY = []
+    for i in range(num_cities):
+        if newX[i] not in seenX:
+            seenX.add(newX[i])
+        else:
+            dupesX.append(i)
+        if newY[i] not in seenY:
+            seenY.add(newY[i])
+        else:
+            dupesY.append(i)
+    for i in dupesX:
+        newX[i] = notX.pop()
+    for i in dupesY:
+        newY[i] = notY.pop()
+    # Calculates tourlengths of two children, returns the best one
+    tourX = 0
+    tourY = 0
+    for i in range(-1,num_cities-1):
+        tourX += distance_matrix[newX[i]][newX[i+1]]
+        tourY += distance_matrix[newY[i]][newY[i+1]]
+    if tourX <= tourY:
+        return(Chrom(newX))
+    else:
+        return(Chrom(newY))
 
+# Mutation as provided on lecture slides and spec
+def mutate(chrom):
+    # Picks two random cities in tour and swaps them
+    tour = chrom.tour[:]
+    posA = rd.randint(0,num_cities-1)
+    posB = rd.randint(0,num_cities-1)
+    temp = tour[posA]
+    tour[posA] = tour[posB]
+    tour[posB] = temp
+    return Chrom(tour)
 
+# Terminates after 117s or completion of all generations
+start = time.time()
+TIME_LIMIT = 117 # 117 seconds
 
+pop = []
+popSize = 75
+# Populate population with poSize random tours
+for i in range(popSize):
+    hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
+best = pop[0]
+sumFit = sum([c.f for c in pop])
+prob = 0.1
+generations = 3000
 
+# Repeats GA 5 times (if it has time) to account for randomness of starting population
+for h in range(5):
+    for i in range(generations):
+        newPop = []
+        # Populates newPop with either mutations or crossovers
+        for j in range(popSize):
+            if rd.uniform(0,1) < prob:
+                child = mutate(roulette())
+            else:
+                child = crossover(roulette(),roulette())
+            hp.heappush(newPop,child)
+        # Keeps track of best so far
+        if newPop[0] < best:
+            best = newPop[0]
+        # Checks if time limit has been surpassed
+        if time.time() >= start + TIME_LIMIT:
+            break
+        # Sets new pop and sum of fitnesses for roulette
+        pop = newPop
+        sumFit = sum([c.f for c in pop])
+    pop = []
+    for i in range(popSize):
+        hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
+    sumFit = sum([c.f for c in pop])
+
+tour = best.tour
+tour_length = best.l
 
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############
