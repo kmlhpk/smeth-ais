@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile180.txt"
+input_file = "AISearchfile175.txt"
 
 #######################################################################################################
 
@@ -162,15 +162,15 @@ else:
 ############ YOU NEED TO INCLUDE THE FOLLOWING PARAMETERS:                                 ############
 ############ "my_user_name" = your user-name, e.g., mine is dcs0ias                        ############
 
-my_user_name = "dcs0ias"
+my_user_name = "hrhq57"
 
 ############ "my_first_name" = your first name, e.g., mine is Iain                         ############
 
-my_first_name = "Iain"
+my_first_name = "Kamil"
 
 ############ "my_last_name" = your last name, e.g., mine is Stewart                        ############
 
-my_last_name = "Stewart"
+my_last_name = "Hepak"
 
 ############ "alg_code" = the two-digit code that tells me which algorithm you have        ############
 ############ implemented (see the assignment pdf), where the codes are:                    ############
@@ -190,7 +190,7 @@ alg_code = "AS"
 ############ you like, e.g., "in my basic greedy search, I broke ties by always visiting   ############
 ############ the first nearest city found" or leave it empty if you wish                   ############
 
-added_note = "The heuristic is greedy remaining distance to goal node; the start city is 0; goal nodes have tour length num_cities+1 due to a repeat 0, but it is sliced off in the final tour."
+added_note = ""
 
 ############ the line below sets up a dictionary of codes and search names (you need do    ############
 ############ nothing unless you implement an alternative algorithm and I give you a code   ############
@@ -271,8 +271,6 @@ class State:
     def __ge__(self,other):
         return self.f >= other.f
 
-start = time.time()
-
 # Initialises the fringe minheap (priority queue)
 fringe = []
 # Initiates start node, city 0
@@ -288,15 +286,9 @@ while current.length != num_cities+1:
             hp.heappush(fringe,current.child(c))
     # Chooses the node with smallest f(z) as new successor
     current = hp.heappop(fringe)
-    
-end = time.time()
-elapsed = end-start
-print("it took me",elapsed,"seconds to find:")
-print(current)
+
 tour = current.tour[:-1]
 tour_length = current.g
-
-# Implementation of 2-opt adapted from https://en.wikipedia.org/wiki/2-opt
 
 # Reverses the a[i:j+1] subsequence in a list
 def revSub(tour,i,j):
@@ -304,8 +296,6 @@ def revSub(tour,i,j):
     newTour.extend(tour[i:j+1][::-1])
     newTour.extend(tour[j+1:])
     return newTour
-
-start = time.time()
 
 # Performs the 2-opt algorithm
 swapped = True
@@ -330,11 +320,6 @@ while swapped == True:
     if swaps == 0:
         swapped = False
 
-end = time.time()
-elapsed = end-start
-print("it took an extra",elapsed,"s to improve to:")
-print(tour,tour_length)
-
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############
 ############ computed a tour held in the list "tour" of length "tour_length"               ############
@@ -357,7 +342,7 @@ if flag == "good":
     print("Great! Your tour-length of " + str(tour_length) + " from your " + codes_and_names[alg_code] + " is valid!")
 else:
     print("***** ERROR: Your claimed tour-length of " + str(tour_length) + "is different from the true tour length of " + str(check_tour_length) + ".")
-'''
+
 #######################################################################################################
 ############ start of code to write a valid tour to a text (.txt) file of the correct      ############
 ############ format; if your tour is not valid then you get an error message on the        ############
@@ -384,4 +369,4 @@ if flag == "good":
         f.write("\nNOTE = " + added_note)
     f.close()
     print("I have successfully written the tour to the output file " + output_file_name + ".")
-'''
+    

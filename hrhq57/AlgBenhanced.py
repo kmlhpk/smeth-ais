@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile180.txt"
+input_file = "AISearchfile175.txt"
 
 #######################################################################################################
 
@@ -184,13 +184,13 @@ my_last_name = "Stewart"
 ############    SA = simulated annealing search                                            ############
 ############    GA = genetic algorithm                                                     ############
 
-alg_code = "AS"
+alg_code = "BG"
 
 ############ you can also add a note that will be added to the end of the output file if   ############
 ############ you like, e.g., "in my basic greedy search, I broke ties by always visiting   ############
 ############ the first nearest city found" or leave it empty if you wish                   ############
 
-added_note = "The heuristic is greedy remaining distance to goal node; the start city is 0; goal nodes have tour length num_cities+1 due to a repeat 0, but it is sliced off in the final tour."
+added_note = ""
 
 ############ the line below sets up a dictionary of codes and search names (you need do    ############
 ############ nothing unless you implement an alternative algorithm and I give you a code   ############
@@ -210,130 +210,16 @@ codes_and_names = {'BF' : 'brute-force search',
 ############    now the code for your algorithm should begin                               ############
 #######################################################################################################
 
-import heapq as hp
-import math
+        
 
-citySet = list(range(num_cities))
 
-# Custom class for state nodes - stores some important info about itself
-class State:
-    def __init__(self,tour,l,g):
-        self.tour = tour[:]
-        self.set = set(self.tour)
-        self.length = l
-        self.g = g
-        self.h = self.heurCost() if self.length != num_cities+1 else 0
-        self.f = self.g + self.h
-    
-    # Calculates remaining distance to a goal node via greedy search
-    def heurCost(self):
-        # Figures out unvisited cities
-        noVisit = [c for c in citySet if c not in self.set]
-        city = self.tour[-1]
-        length = self.length
-        heur = 0
-        # Loops until full tour found
-        while length != num_cities:
-            # Makes a dictionary of neighbour:distance to neighbour
-            distances = {c:distance_matrix[city][c] for c in noVisit}
-            # Picks nearest neighbour as next city
-            city = min(distances,key=distances.get)
-            noVisit.remove(city)
-            heur += distances[city]
-            length += 1
-        # Joins up start and end cities
-        heur += distance_matrix[city][0]
-        return heur
-    
-    # Generates a child with updated attributes
-    def child(self,nextCity):
-        newTour = self.tour[:]
-        newTour.append(nextCity)
-        newG = self.g + distance_matrix[newTour[-2]][newTour[-1]]
-        newL = self.length + 1
-        return State(newTour,newL,newG)
-    
-    # Prints state attributes
-    def __str__(self):
-        return "tour:{self.tour} len:{self.length} g:{self.g} h:{self.h} f:{self.f}".format(self=self)
 
-    # Redefines state comparisons to be in terms of f(z)
-    def __eq__(self,other):
-        return self.f == other.f
-    def __ne__(self,other):
-        return self.f != other.f
-    def __lt__(self,other):
-        return self.f < other.f
-    def __le__(self,other):
-        return self.f <= other.f
-    def __gt__(self,other):
-        return self.f > other.f
-    def __ge__(self,other):
-        return self.f >= other.f
 
-start = time.time()
 
-# Initialises the fringe minheap (priority queue)
-fringe = []
-# Initiates start node, city 0
-current = State([0],1,0)
-# Performs A* search by expanding best node and popping from fringe
-while current.length != num_cities+1:
-    # Adds the current state's successors onto the fringe
-    if current.length == num_cities:
-        hp.heappush(fringe,current.child(0))
-    else:
-        newCities = [c for c in range (num_cities) if c not in current.set]
-        for c in newCities:
-            hp.heappush(fringe,current.child(c))
-    # Chooses the node with smallest f(z) as new successor
-    current = hp.heappop(fringe)
-    
-end = time.time()
-elapsed = end-start
-print("it took me",elapsed,"seconds to find:")
-print(current)
-tour = current.tour[:-1]
-tour_length = current.g
 
-# Implementation of 2-opt adapted from https://en.wikipedia.org/wiki/2-opt
 
-# Reverses the a[i:j+1] subsequence in a list
-def revSub(tour,i,j):
-    newTour = tour[0:i]
-    newTour.extend(tour[i:j+1][::-1])
-    newTour.extend(tour[j+1:])
-    return newTour
 
-start = time.time()
 
-# Performs the 2-opt algorithm
-swapped = True
-# Repeats until no swaps (improvements) made
-while swapped == True:
-    swaps = 0
-    tourCopy = tour[:]
-    # Tries each pair of cities
-    for i in range(0,num_cities-2):
-        for j in range(i+1,num_cities-1):
-            # Reverses subsequence to simulate "uncrossing" overlapping edges
-            newTour = revSub(tourCopy,i,j)
-            # Calculates new tour length
-            tourLen = 0
-            for k in range(-1,num_cities-1):
-                tourLen += distance_matrix[newTour[k]][newTour[k+1]]
-            # If tour length improved, starts process again on new tour with swap
-            if tourLen < tour_length:
-                swaps += 1
-                tour_length = tourLen
-                tour = [c for c in newTour]
-    if swaps == 0:
-        swapped = False
-
-end = time.time()
-elapsed = end-start
-print("it took an extra",elapsed,"s to improve to:")
-print(tour,tour_length)
 
 #######################################################################################################
 ############ the code for your algorithm should now be complete and you should have        ############
@@ -357,7 +243,7 @@ if flag == "good":
     print("Great! Your tour-length of " + str(tour_length) + " from your " + codes_and_names[alg_code] + " is valid!")
 else:
     print("***** ERROR: Your claimed tour-length of " + str(tour_length) + "is different from the true tour length of " + str(check_tour_length) + ".")
-'''
+
 #######################################################################################################
 ############ start of code to write a valid tour to a text (.txt) file of the correct      ############
 ############ format; if your tour is not valid then you get an error message on the        ############
@@ -384,4 +270,19 @@ if flag == "good":
         f.write("\nNOTE = " + added_note)
     f.close()
     print("I have successfully written the tour to the output file " + output_file_name + ".")
-'''
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+    
+
+

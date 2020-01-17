@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile058.txt"
+input_file = "AISearchfile175.txt"
 
 #######################################################################################################
 
@@ -259,18 +259,6 @@ def roulette():
         current += c.f
         if current > pick:
             return c
-        
-# Checks average fitness of chroms picked by roulette()
-def checkAverages():
-    sumFit = sum([c.f for c in pop])    
-    avgFit = sumFit / popSize
-    total = 0
-    for i in range(10000):
-        chrom = roulette()
-        total += chrom.f
-    avgSel = total / 10000
-    print(avgFit)
-    print(avgSel)
 
 # Crossover as provided on lecture slides and spec
 def crossover(X,Y):
@@ -308,54 +296,22 @@ def crossover(X,Y):
     else:
         return(Chrom(newY))
 
-# Mutation as provided on lecture slides and spec
-def mutateIP(chrom):
-    posA = rd.randint(0,num_cities-1)
-    posB = rd.randint(0,num_cities-1)
-    temp = chrom.tour[posA]
-    chrom.tour[posA] = chrom.tour[posB]
-    chrom.tour[posB] = temp
-    chrom.calcFit()
-    return
-
-def mutate(chrom):
-    tour = [c for c in chrom.tour] 
-    posA = rd.randint(0,num_cities-1)
-    posB = rd.randint(0,num_cities-1)
-    temp = tour[posA]
-    tour[posA] = tour[posB]
-    tour[posB] = temp
-    return Chrom(tour)
-
+# Reverses a subsequence of a chromosome's tour between two random positions
 def mutateSub(chrom):
-    tour = [c for c in chrom.tour] 
-    pos = rd.randint(0,num_cities-1)
-    tour[pos:pos+30] = tour[pos:pos+30][::-1]
-    return Chrom(tour)
+    tour = chrom.tour[:]
+    pos1 = rd.randint(0,num_cities-1)
+    pos2 = rd.randint(pos1,num_cities-1)
+    newTour = tour[0:pos1]
+    newTour.extend(tour[pos1:pos2+1][::-1])
+    newTour.extend(tour[pos2+1:])
+    return Chrom(newTour)
 
 def greedyChrom():
     city = rd.randint(0,num_cities-1)
-    noVisit = []
     tour = [city]
-    cities = 1
-    # Iterates through unvisited cities, picking nearest as next destination
-    while cities != num_cities:
-        distances = [c for c in distance_matrix[city]]
-        # Ignores distances to visited cities by making them infinite
-        for i in tour:
-            distances[i] = math.inf
-        smallest = min(distances)
-        city = distances.index(smallest)
-        tour.append(city)
-        cities += 1
-    return Chrom(tour)
-
-def heurCost():
-    # Figures out unvisited cities
-    noVisit = [c for c in range(num_cities) if c not in self.set]
-    city = self.tour[-1]
-    length = self.length
-    heur = 0
+    noVisit = list(range(num_cities))
+    noVisit.remove(city)
+    length = 1
     # Loops until full tour found
     while length != num_cities:
         # Makes a dictionary of neighbour:distance to neighbour
@@ -363,47 +319,48 @@ def heurCost():
         # Picks nearest neighbour as next city
         city = min(distances,key=distances.get)
         noVisit.remove(city)
-        heur += distances[city]
+        tour.append(city)
         length += 1
-    # Joins up start and end cities
-    heur += distance_matrix[city][0]
-    return heur
+    return Chrom(tour)
 
-# Terminate after either 2 minutes,
-# or no improvement in fitness for a few generations
-
+# Terminates after 117s or completion of all generations
 start = time.time()
-TIME_LIMIT = 99999999999 # 115 seconds
+TIME_LIMIT = 117 # 117 seconds
 
 pop = []
 popSize = 75
-for i in range(popSize):
+greedies = 2
+# First greedies chromosomes are greedy tours
+for i in range(greedies):
+    hp.heappush(pop,greedyChrom())
+# Remaining popSize-greedies chromosomes are random tours
+for i in range(popSize-greedies):
     hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
-    #hp.heappush(pop,greedyChrom())
+
 best = pop[0]
-#rd.shuffle(pop)
 gen = -1
 sumFit = sum([c.f for c in pop])
-prob = 0.05
+prob = 0.1
 generations = 3000
 
-for i in range(generations):
-    newPop = []
-    for j in range(popSize):
-        if rd.uniform(0,1) < prob:
-            #child = mutateSub(roulette())
-            child = mutate(roulette())
-        else:
-            child = crossover(roulette(),roulette())
-        hp.heappush(newPop,child)
-    if newPop[0] < best:
-        best = newPop[0]
-        gen = i
-    if time.time() >= start + TIME_LIMIT:
-        break
-    pop = newPop
-    #rd.shuffle(pop)
-    sumFit = sum([c.f for c in pop])
+# Repeats GA 5 times (if it has time) to account for randomness of starting population
+for h in range(5):
+    for i in range(generations):
+        # Elitism: best 2 members of each population survives to next generation
+        newPop = [pop[0],pop[1]]
+        for j in range(popSize-2):
+            if rd.uniform(0,1) < prob:
+                child = mutateSub(roulette())
+            else:
+                child = crossover(roulette(),roulette())
+            hp.heappush(newPop,child)
+        if newPop[0] < best:
+            best = newPop[0]
+            gen = i
+        if time.time() >= start + TIME_LIMIT:
+            break
+        pop = newPop
+        sumFit = sum([c.f for c in pop])
 
 end = time.time()
 elapsed = end-start
@@ -415,37 +372,6 @@ print(gen)
 
 tour = best.tour
 tour_length = best.l
-
-start = time.time()
-
-# Performs the 2-opt algorithm
-swapped = True
-# Repeats until no swaps (improvements) made
-while swapped == True:
-    swaps = 0
-    tourCopy = tour[:]
-    # Tries each pair of cities
-    for i in range(0,num_cities-2):
-        for j in range(i+1,num_cities-1):
-            # Reverses subsequence to simulate "uncrossing" overlapping edges
-            newTour = revSub(tourCopy,i,j)
-            # Calculates new tour length
-            tourLen = 0
-            for k in range(-1,num_cities-1):
-                tourLen += distance_matrix[newTour[k]][newTour[k+1]]
-            # If tour length improved, starts process again on new tour with swap
-            if tourLen < tour_length:
-                swaps += 1
-                tour_length = tourLen
-                tour = [c for c in newTour]
-    if swaps == 0:
-        swapped = False
-
-end = time.time()
-elapsed = end-start
-print("it took an extra",elapsed,"s to improve to:")
-print(tour,tour_length)
-
 
 
 #######################################################################################################

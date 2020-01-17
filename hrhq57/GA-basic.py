@@ -111,7 +111,7 @@ def make_distance_matrix_symmetric(num_cities):
 ############ supplied internally as the default file or via a command line execution.      ############
 ############ if your input file does not exist then the program will crash.                ############
 
-input_file = "AISearchfile058.txt"
+input_file = "AISearchfile175.txt"
 
 #######################################################################################################
 
@@ -258,26 +258,17 @@ def roulette():
         current += c.f
         if current > pick:
             return c
-        
-# Checks average fitness of chroms picked by roulette()
-def checkAverages():
-    sumFit = sum([c.f for c in pop])    
-    avgFit = sumFit / popSize
-    total = 0
-    for i in range(10000):
-        chrom = roulette()
-        total += chrom.f
-    avgSel = total / 10000
-    print(avgFit)
-    print(avgSel)
 
-# Crossover as provided on lecture slides and spec
+# Single-point crossover as provided on lecture slides and spec
 def crossover(X,Y):
     pos = rd.randint(1,num_cities-1)
+    # Splits tours about random position
     splitX = (X.tour[:pos],X.tour[pos:])
     splitY = (Y.tour[:pos],Y.tour[pos:])
+    # Recombines tours, swapping sections
     newX = splitX[0]+splitY[1]
     newY = splitY[0]+splitX[1]
+    # Fixes duplicates
     notX = citySet - set(newX)
     notY = citySet - set(newY)
     seenX = set()
@@ -297,6 +288,7 @@ def crossover(X,Y):
         newX[i] = notX.pop()
     for i in dupesY:
         newY[i] = notY.pop()
+    # Calculates tourlengths of two children, returns the best one
     tourX = 0
     tourY = 0
     for i in range(-1,num_cities-1):
@@ -309,6 +301,7 @@ def crossover(X,Y):
 
 # Mutation as provided on lecture slides and spec
 def mutate(chrom):
+    # Picks two random cities in tour and swaps them
     posA = rd.randint(0,num_cities-1)
     posB = rd.randint(0,num_cities-1)
     temp = chrom.tour[posA]
@@ -317,38 +310,35 @@ def mutate(chrom):
     chrom.calcFit()
     return
 
-# Terminate after either 2 minutes,
-# or no improvement in fitness for a few generations
-
+# Terminates after 117s or completion of all generations
 start = time.time()
-TIME_LIMIT = 115 # 115 seconds
+TIME_LIMIT = 117 # 117 seconds
 
 pop = []
 popSize = 75
+# Populate population with poSize random tours
 for i in range(popSize):
     hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
 best = pop[0]
-#rd.shuffle(pop)
-gen = -1
 sumFit = sum([c.f for c in pop])
 prob = 0.1
 generations = 3000
 
-for i in range(generations):
-    newPop = []
-    for j in range(popSize):
-        child = crossover(roulette(),roulette())
-        if rd.uniform(0,1) < prob:
-            mutate(child)
-        hp.heappush(newPop,child)
-    if newPop[0] < best:
-        best = newPop[0]
-        gen = i
-    if time.time() >= start + TIME_LIMIT:
-        break
-    pop = newPop
-    #rd.shuffle(pop)
-    sumFit = sum([c.f for c in pop])
+# Repeats GA 5 times (if it has time) to account for randomness of starting population
+for h in range(5):
+    for i in range(generations):
+        newPop = []
+        for j in range(popSize):
+            child = crossover(roulette(),roulette())
+            if rd.uniform(0,1) < prob:
+                mutate(child)
+            hp.heappush(newPop,child)
+        if newPop[0] < best:
+            best = newPop[0]
+        if time.time() >= start + TIME_LIMIT:
+            break
+        pop = newPop
+        sumFit = sum([c.f for c in pop])
 
 end = time.time()
 elapsed = end-start
