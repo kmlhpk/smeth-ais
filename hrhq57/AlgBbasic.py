@@ -219,7 +219,6 @@ citySet = set(range(num_cities))
 
 # Custom class for chromosomes; stores own tour, length and fitness (inverse of length)
 class Chrom():
-    # Gives chromosome a random tour if none specified
     def __init__(self,tour):
         self.tour = [c for c in tour]
         self.calcFit()
@@ -317,7 +316,7 @@ TIME_LIMIT = 117 # 117 seconds
 
 pop = []
 popSize = 75
-# Populate population with poSize random tours
+# Populate population with popSize random tours
 for i in range(popSize):
     hp.heappush(pop,Chrom(rd.sample(citySet,num_cities)))
 best = pop[0]

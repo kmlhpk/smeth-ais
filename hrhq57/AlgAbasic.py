@@ -287,6 +287,7 @@ while current.length != num_cities+1:
     # Chooses the node with smallest f(z) as new successor
     current = hp.heappop(fringe)
 
+# Removes extra 0 from end of tour
 tour = current.tour[:-1]
 tour_length = current.g
 

@@ -219,7 +219,6 @@ citySet = set(range(num_cities))
 
 # Custom class for chromosomes; stores own tour, length and fitness (inverse of length)
 class Chrom():
-    # Gives chromosome a random tour if none specified
     def __init__(self,tour):
         self.tour = [c for c in tour]
         self.calcFit()
@@ -310,6 +309,7 @@ def mutateSub(chrom):
     newTour.extend(tour[pos2+1:])
     return Chrom(newTour)
 
+# Makes a chromosome with a greedy tour starting from a random city
 def greedyChrom():
     city = rd.randint(0,num_cities-1)
     tour = [city]
