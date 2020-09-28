@@ -1,2 +1,2 @@
-# SMethAIS
-SoftMeth 2019/20 AI Search Summative
+# smeth-ais
+SMeth 19/20 AI Search Summative

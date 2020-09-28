@@ -162,7 +162,7 @@ else:
 ############ YOU NEED TO INCLUDE THE FOLLOWING PARAMETERS:                                 ############
 ############ "my_user_name" = your user-name, e.g., mine is dcs0ias                        ############
 
-my_user_name = "hrhq57"
+my_user_name = ""
 
 ############ "my_first_name" = your first name, e.g., mine is Iain                         ############
 
